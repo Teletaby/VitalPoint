@@ -24,7 +24,7 @@ async function fetchDoctors() {
             const row = document.createElement('tr');
 
             const nameCell = document.createElement('td');
-            nameCell.textContent = `Dr. ${doctor.name}`;
+            nameCell.textContent = doctor.name;
             row.appendChild(nameCell);
 
             const specialtyCell = document.createElement('td');
