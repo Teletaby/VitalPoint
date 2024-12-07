@@ -1,7 +1,14 @@
 // Fetch and display doctors in the table
 async function fetchDoctors() {
+    // Dynamically set the API URL based on the environment
+    const apiUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000/doctors'  // Local development server
+        : 'https://vitalpoint.onrender.com/doctors'; // Production server
+
+    console.log("Using API URL:", apiUrl);  // Log the API URL to the console
+
     try {
-        const response = await fetch('http://localhost:5000/doctors');
+        const response = await fetch(apiUrl);
 
         if (!response.ok) {
             throw new Error(`Failed to fetch doctors. Status: ${response.status}`);
