@@ -27,11 +27,13 @@ let db;
 // MongoDB connection with retry logic
 async function connectWithRetry() {
   try {
+    console.log('Attempting to connect to MongoDB...');
     const client = await MongoClient.connect(uri, { useUnifiedTopology: true });
     db = client.db(dbName);
     console.log('Connected to MongoDB');
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('MongoDB connection error:', error.message);
+    console.error('Retrying connection in 5 seconds...');
     setTimeout(connectWithRetry, 5000); // Retry after 5 seconds
   }
 }
@@ -204,6 +206,18 @@ app.delete('/deleteDoctor/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting doctor:', error);
     res.status(500).send('Error deleting doctor');
+  }
+});
+
+// Test route to check database connection
+app.get('/test-db-write', async (req, res) => {
+  try {
+    const testDoc = { test: 'test', timestamp: new Date() };
+    const result = await db.collection('testCollection').insertOne(testDoc);
+    res.status(200).send({ success: true, insertedId: result.insertedId });
+  } catch (error) {
+    console.error('Database write test failed:', error);
+    res.status(500).send({ success: false, error: error.message });
   }
 });
 
