@@ -1,4 +1,3 @@
-// Import required modules
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const dotenv = require('dotenv');
@@ -25,7 +24,7 @@ const doctorCollection = 'doctorList';
 
 let db;
 
-// Connect to MongoDB
+// Connect to MongoDB for appointments and user login (MongoClient)
 MongoClient.connect(uri)
   .then(client => {
     db = client.db(dbName);
@@ -71,48 +70,51 @@ app.post('/appointments', async (req, res) => {
   const { name, address, email, age, gender, dateTime, doctor } = req.body;
 
   if (!name || !address || !email || !age || !gender || !dateTime || !doctor) {
-    return res.status(400).send('All fields are required.');
+      return res.status(400).send('All fields are required.');
   }
 
   try {
-    const existingAppointment = await db.collection(appointmentsCollection).findOne({
-      doctor,
-      dateTime,
-    });
+      const existingAppointment = await db.collection(appointmentsCollection).findOne({
+          doctor,
+          dateTime,
+      });
 
-    if (existingAppointment) {
-      return res.status(409).send('This doctor is already booked for the selected time.');
-    }
+      if (existingAppointment) {
+          return res.status(409).send('This doctor is already booked for the selected time.');
+      }
 
-    const patientId = Math.floor(Math.random() * 1000000);
+      const patientId = Math.floor(Math.random() * 1000000);
 
-    const newAppointment = {
-      patientId,
-      name,
-      doctor,
-      contact: address,
-      email,
-      dateTime,
-      createdAt: new Date(),
-    };
+      const newAppointment = {
+          patientId,
+          name,
+          doctor,
+          contact: address,
+          email,
+          dateTime,
+          createdAt: new Date(),
+      };
 
-    const result = await db.collection(appointmentsCollection).insertOne(newAppointment);
+      // Insert new appointment into the database
+      const result = await db.collection(appointmentsCollection).insertOne(newAppointment);
 
-    if (result.acknowledged) {
-      res.status(201).send('Appointment scheduled successfully');
-    } else {
-      res.status(500).send('Error scheduling appointment');
-    }
+      if (result.acknowledged) {
+          res.status(201).send('Appointment scheduled successfully');
+      } else {
+          res.status(500).send('Error scheduling appointment');
+      }
   } catch (error) {
-    console.error('Error saving appointment:', error);
-    res.status(500).send('Error scheduling appointment');
+      console.error('Error saving appointment:', error);
+      res.status(500).send('Error scheduling appointment');
   }
 });
+
 
 // GET: Fetch all appointments
 app.get('/appointments', async (req, res) => {
   try {
     const appointments = await db.collection(appointmentsCollection).find().toArray();
+    console.log('Appointments in DB:', appointments);  // Log the appointments to check
     res.status(200).json(appointments);
   } catch (error) {
     console.error('Error fetching appointments:', error);
@@ -123,10 +125,6 @@ app.get('/appointments', async (req, res) => {
 // DELETE: Delete an appointment
 app.delete('/appointments/:id', async (req, res) => {
   const appointmentId = req.params.id;
-
-  if (!ObjectId.isValid(appointmentId)) {
-    return res.status(400).send('Invalid appointment ID');
-  }
 
   try {
     const result = await db.collection(appointmentsCollection).deleteOne({ _id: new ObjectId(appointmentId) });
@@ -185,6 +183,9 @@ app.post('/addDoctor', async (req, res) => {
       createdAt: new Date(),
     };
 
+    // Log the doctor and user data before inserting
+    console.log('Adding new doctor and user:', newDoctor, newUser);
+
     await db.collection(doctorCollection).insertOne(newDoctor);
     await db.collection(userCollection).insertOne(newUser);
 
@@ -229,12 +230,7 @@ app.delete('/deleteDoctor/:id', async (req, res) => {
 });
 
 // Serve static files (index.html)
-app.use(express.static('public'));
-
-// Catch-all route for undefined endpoints
-app.use((req, res) => {
-  res.status(404).send('Endpoint not found');
-});
+app.use(express.static(__dirname));  // Serve files from the root directory
 
 // Start the server
 app.listen(port, () => {
