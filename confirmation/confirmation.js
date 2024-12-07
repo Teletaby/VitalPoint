@@ -33,9 +33,11 @@ window.onload = function() {
     // Display doctor data
     const doctorData = JSON.parse(localStorage.getItem('doctorData'));
     if (doctorData) {
-        document.getElementById('doctor-name').textContent = doctorData.name;
-        document.getElementById('doctor-specialty').textContent = doctorData.specialty;
-        document.getElementById('clinic-hours').textContent = doctorData.hours;
+        document.getElementById('doctor-name').textContent = doctorData.name || "Unknown";
+        document.getElementById('doctor-specialty').textContent = doctorData.specialty || "N/A";
+        document.getElementById('clinic-hours').textContent = doctorData.allowedDays.length > 0
+            ? `${doctorData.allowedDays.join(', ')} (${doctorData.startHour}:00 - ${doctorData.endHour}:00)`
+            : "Not Available";
 
         const doctorImage = document.getElementById('doctor-image');
         if (doctorData.gender.toLowerCase() === "male") {
@@ -44,8 +46,9 @@ window.onload = function() {
         } else if (doctorData.gender.toLowerCase() === "female") {
             doctorImage.src = "../resources/female.png";
             doctorImage.alt = "Female Doctor";
+        } else {
+            doctorImage.src = "../resources/default.png"; 
+            doctorImage.alt = "Unknown Gender";
         }
-
-        
     }
 };

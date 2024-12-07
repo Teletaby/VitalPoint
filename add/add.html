@@ -32,6 +32,14 @@
                 <option value="Pediatrician">Pediatrician</option>
             </select>
     
+            <label for="gender"><b>Gender</b></label>
+            <select name="gender" id="gender" required>
+                <option value="" disabled selected>Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+    
             <label for="days"><b>Days Available</b></label>
             <select name="days[]" id="days" multiple required>
                 <option value="Monday">Monday</option>
@@ -82,7 +90,6 @@
         </div>
     </div>
 
-    <!-- Add JS at the bottom -->
     <script src="../add/add.js"></script>
 </body>
 </html>
