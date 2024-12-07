@@ -28,7 +28,7 @@ let db;
 async function connectWithRetry() {
   try {
     console.log('Attempting to connect to MongoDB...');
-    const client = await MongoClient.connect(uri, { useUnifiedTopology: true });
+    const client = await MongoClient.connect(uri);
     db = client.db(dbName);
     console.log('Connected to MongoDB');
   } catch (error) {
