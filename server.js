@@ -13,9 +13,9 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors({ origin: 'https://vitalpoint.onrender.com' })); // Restrict CORS to your domain
 
-// MongoDB URI
+// MongoDB connection
 const uri = process.env.MONGO_URI;
 const dbName = 'VitalPoint';
 const userCollection = 'user';
@@ -24,18 +24,20 @@ const doctorCollection = 'doctorList';
 
 let db;
 
-// Connect to MongoDB
-MongoClient.connect(uri)
-  .then(client => {
+// MongoDB connection with retry logic
+async function connectWithRetry() {
+  try {
+    const client = await MongoClient.connect(uri, { useUnifiedTopology: true });
     db = client.db(dbName);
     console.log('Connected to MongoDB');
-  })
-  .catch(error => {
+  } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1); // Exit if connection fails
-  });
+    setTimeout(connectWithRetry, 5000); // Retry after 5 seconds
+  }
+}
+connectWithRetry();
 
-// Middleware to check if database is connected
+// Middleware to check if the database is connected
 app.use((req, res, next) => {
   if (!db) {
     return res.status(500).send('Database not connected');
@@ -43,26 +45,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Routes
+
 // POST: Login Route - Verify username and password
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-
-  console.log('Login attempt:', { username });
-
   try {
     const user = await db.collection(userCollection).findOne({ username });
-
-    if (!user) {
-      return res.status(401).send('Invalid username or password');
+    if (user && password === user.password) {
+      return res.status(200).json(user);
     }
-
-    if (password === user.password) {
-      console.log('Login successful:', user);
-      res.status(200).json(user);
-    } else {
-      console.log('Invalid password for user:', username);
-      res.status(401).send('Invalid username or password');
-    }
+    res.status(401).send('Invalid username or password');
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).send('Error logging in');
@@ -73,8 +66,6 @@ app.post('/login', async (req, res) => {
 app.post('/appointments', async (req, res) => {
   const { name, address, email, age, gender, dateTime, doctor } = req.body;
 
-  console.log('New appointment request:', req.body);
-
   if (!name || !address || !email || !age || !gender || !dateTime || !doctor) {
     return res.status(400).send('All fields are required.');
   }
@@ -84,33 +75,29 @@ app.post('/appointments', async (req, res) => {
       doctor,
       dateTime,
     });
-    console.log('Existing appointment check:', existingAppointment);
 
     if (existingAppointment) {
       return res.status(409).send('This doctor is already booked for the selected time.');
     }
 
-    const patientId = Math.floor(Math.random() * 1000000);
-
+    const patientId = `PAT-${Math.floor(Math.random() * 1000000)}`;
     const newAppointment = {
       patientId,
       name,
       doctor,
       contact: address,
       email,
+      age,
+      gender,
       dateTime,
       createdAt: new Date(),
     };
 
     const result = await db.collection(appointmentsCollection).insertOne(newAppointment);
-
-    console.log('Appointment creation result:', result);
-
     if (result.acknowledged) {
-      res.status(201).send('Appointment scheduled successfully');
-    } else {
-      res.status(500).send('Error scheduling appointment');
+      return res.status(201).send('Appointment scheduled successfully');
     }
+    res.status(500).send('Error scheduling appointment');
   } catch (error) {
     console.error('Error saving appointment:', error);
     res.status(500).send('Error scheduling appointment');
@@ -121,7 +108,6 @@ app.post('/appointments', async (req, res) => {
 app.get('/appointments', async (req, res) => {
   try {
     const appointments = await db.collection(appointmentsCollection).find().toArray();
-    console.log('Fetched appointments:', appointments);
     res.status(200).json(appointments);
   } catch (error) {
     console.error('Error fetching appointments:', error);
@@ -133,17 +119,12 @@ app.get('/appointments', async (req, res) => {
 app.delete('/appointments/:id', async (req, res) => {
   const appointmentId = req.params.id;
 
-  console.log('Delete appointment request:', appointmentId);
-
   try {
     const result = await db.collection(appointmentsCollection).deleteOne({ _id: new ObjectId(appointmentId) });
-    console.log('Delete result:', result);
-
     if (result.deletedCount > 0) {
-      res.status(200).send('Appointment deleted');
-    } else {
-      res.status(404).send('Appointment not found');
+      return res.status(200).send('Appointment deleted');
     }
+    res.status(404).send('Appointment not found');
   } catch (error) {
     console.error('Error deleting appointment:', error);
     res.status(500).send('Error deleting appointment');
@@ -154,14 +135,20 @@ app.delete('/appointments/:id', async (req, res) => {
 app.post('/addDoctor', async (req, res) => {
   const { doctor, user } = req.body;
 
-  console.log('Add doctor request:', req.body);
-
-  if (!doctor.name || !doctor.specialty || !doctor.gender || !doctor.days || !doctor.start_time || !doctor.end_time || !doctor.email || !doctor.password) {
-    return res.status(400).send('All doctor fields are required.');
-  }
-
-  if (!user.username || !user.password || !user.name) {
-    return res.status(400).send('All user fields are required.');
+  if (
+    !doctor.name ||
+    !doctor.specialty ||
+    !doctor.gender ||
+    !doctor.days ||
+    !doctor.start_time ||
+    !doctor.end_time ||
+    !doctor.email ||
+    !doctor.password ||
+    !user.username ||
+    !user.password ||
+    !user.name
+  ) {
+    return res.status(400).send('All fields are required.');
   }
 
   try {
@@ -176,18 +163,8 @@ app.post('/addDoctor', async (req, res) => {
     }
 
     const doctorId = `DOC-${Math.floor(Math.random() * 1000000)}`;
-    const newDoctor = {
-      doctorId,
-      ...doctor,
-      createdAt: new Date(),
-    };
-
-    const newUser = {
-      ...user,
-      createdAt: new Date(),
-    };
-
-    console.log('New doctor and user to add:', newDoctor, newUser);
+    const newDoctor = { doctorId, ...doctor, createdAt: new Date() };
+    const newUser = { ...user, createdAt: new Date() };
 
     await db.collection(doctorCollection).insertOne(newDoctor);
     await db.collection(userCollection).insertOne(newUser);
@@ -207,7 +184,6 @@ app.get('/doctors', async (req, res) => {
       ...doctor,
       name: `Dr. ${doctor.name}`,
     }));
-    console.log('Fetched doctors:', doctorsWithPrefix);
     res.status(200).json(doctorsWithPrefix);
   } catch (error) {
     console.error('Error fetching doctors:', error);
@@ -219,17 +195,12 @@ app.get('/doctors', async (req, res) => {
 app.delete('/deleteDoctor/:id', async (req, res) => {
   const doctorId = req.params.id;
 
-  console.log('Delete doctor request:', doctorId);
-
   try {
     const result = await db.collection(doctorCollection).deleteOne({ doctorId });
-    console.log('Delete result:', result);
-
     if (result.deletedCount > 0) {
-      res.status(200).send('Doctor deleted');
-    } else {
-      res.status(404).send('Doctor not found');
+      return res.status(200).send('Doctor deleted');
     }
+    res.status(404).send('Doctor not found');
   } catch (error) {
     console.error('Error deleting doctor:', error);
     res.status(500).send('Error deleting doctor');
