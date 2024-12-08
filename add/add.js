@@ -1,3 +1,6 @@
+// Get the base URL depending on the environment
+const baseURL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://vitalpoint.onrender.com';
+
 // Get elements
 var modal = document.getElementById("myModal");
 var btn = document.getElementById("submit");
@@ -54,7 +57,7 @@ confirmBtn.addEventListener("click", async function () {
         console.log('Sending doctor data:', doctorData);
         console.log('Sending user data:', userData);
 
-        const response = await fetch('http://localhost:5000/addDoctor', {
+        const response = await fetch(`${baseURL}/addDoctor`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -81,7 +84,7 @@ confirmBtn.addEventListener("click", async function () {
 // Fetch doctors for display
 async function fetchDoctors() {
     try {
-        const response = await fetch('http://localhost:5000/doctors');
+        const response = await fetch(`${baseURL}/doctors`);
         const doctors = await response.json();
 
         console.log('Doctors fetched:', doctors);
