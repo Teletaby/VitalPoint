@@ -225,19 +225,36 @@ app.get('/doctors', async (req, res) => {
     }
 });
 
-// DELETE: Delete a doctor
+// DELETE: Delete a doctor and their associated login credentials
 app.delete('/deleteDoctor/:id', async (req, res) => {
     const doctorId = req.params.id;
 
     try {
-        const result = await db.collection(doctorCollection).deleteOne({ doctorId });
-        if (result.deletedCount > 0) {
-            return res.status(200).send('Doctor deleted');
+        // Find the doctor to get their email
+        const doctor = await db.collection(doctorCollection).findOne({ doctorId });
+
+        if (!doctor) {
+            return res.status(404).send('Doctor not found');
         }
-        res.status(404).send('Doctor not found');
+
+        // Delete the doctor from the doctor collection
+        const doctorDeletionResult = await db.collection(doctorCollection).deleteOne({ doctorId });
+
+        if (doctorDeletionResult.deletedCount === 0) {
+            return res.status(404).send('Doctor not found');
+        }
+
+        // Delete the associated user from the user collection
+        const userDeletionResult = await db.collection(userCollection).deleteOne({ username: doctor.email });
+
+        if (userDeletionResult.deletedCount > 0) {
+            return res.status(200).send('Doctor and their credentials deleted successfully');
+        } else {
+            return res.status(200).send('Doctor deleted, but no associated credentials found');
+        }
     } catch (error) {
-        console.error('Error deleting doctor:', error);
-        res.status(500).send('Error deleting doctor');
+        console.error('Error deleting doctor and their credentials:', error);
+        res.status(500).send('Error deleting doctor and their credentials');
     }
 });
 
