@@ -13,12 +13,14 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors({
-    origin: ['http://localhost', 'https://vitalpoint.onrender.com'], // Allowed origins
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
-    credentials: true // If cookies or auth tokens are needed
-}));
+app.use(
+    cors({
+        origin: ['http://localhost', 'https://vitalpoint.onrender.com'], // Allowed origins
+        methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+        allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+        credentials: true, // If cookies or auth tokens are needed
+    })
+);
 
 // MongoDB connection
 const uri = process.env.MONGO_URI;
@@ -78,15 +80,23 @@ app.post('/appointments', async (req, res) => {
     }
 
     try {
+        // Parse `dateTime` to ensure it is a valid Date
+        const parsedDateTime = new Date(dateTime);
+        if (isNaN(parsedDateTime)) {
+            return res.status(400).send('Invalid dateTime format.');
+        }
+
+        // Check for existing appointments at the same time
         const existingAppointment = await db.collection(appointmentsCollection).findOne({
             doctor,
-            dateTime,
+            dateTime: parsedDateTime,
         });
 
         if (existingAppointment) {
             return res.status(409).send('This doctor is already booked for the selected time.');
         }
 
+        // Generate a unique patient ID
         const patientId = `PAT-${Math.floor(Math.random() * 1000000)}`;
         const newAppointment = {
             patientId,
@@ -96,10 +106,11 @@ app.post('/appointments', async (req, res) => {
             email,
             age,
             gender,
-            dateTime,
+            dateTime: parsedDateTime, // Store as a Date object
             createdAt: new Date(),
         };
 
+        // Insert the new appointment into the database
         const result = await db.collection(appointmentsCollection).insertOne(newAppointment);
         if (result.acknowledged) {
             return res.status(201).send('Appointment scheduled successfully');
@@ -115,7 +126,21 @@ app.post('/appointments', async (req, res) => {
 app.get('/appointments', async (req, res) => {
     try {
         const appointments = await db.collection(appointmentsCollection).find().toArray();
-        res.status(200).json(appointments);
+
+        // Convert `dateTime` to a readable format before sending to the client
+        const formattedAppointments = appointments.map(appointment => ({
+            ...appointment,
+            dateTime: new Date(appointment.dateTime).toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            }),
+        }));
+
+        res.status(200).json(formattedAppointments);
     } catch (error) {
         console.error('Error fetching appointments:', error);
         res.status(500).send('Error fetching appointments');
@@ -127,7 +152,9 @@ app.delete('/appointments/:id', async (req, res) => {
     const appointmentId = req.params.id;
 
     try {
-        const result = await db.collection(appointmentsCollection).deleteOne({ _id: new ObjectId(appointmentId) });
+        const result = await db.collection(appointmentsCollection).deleteOne({
+            _id: new ObjectId(appointmentId),
+        });
         if (result.deletedCount > 0) {
             return res.status(200).send('Appointment deleted');
         }

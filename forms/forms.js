@@ -32,14 +32,14 @@ function displayDetails() {
 
     // Gender image display
     const doctorImage = document.getElementById('doctor-image');
-    const gender = doctorData.gender ? doctorData.gender.toLowerCase() : 'unknown';  // Default to 'unknown' if gender is undefined
+    const gender = doctorData.gender ? doctorData.gender.toLowerCase() : 'unknown';
 
     if (gender === "male") {
         doctorImage.src = "../resources/male.jpg"; // Male image
     } else if (gender === "female") {
         doctorImage.src = "../resources/female.png"; // Female image
     } else {
-        doctorImage.src = "../resources/default.png"; // Default image for non-binary or undefined genders
+        doctorImage.src = "../resources/default.png"; // Default image
     }
 
     // Enable date input and set minimum to today
@@ -98,16 +98,27 @@ let formData = {}; // Temporary store data
 btn.addEventListener("click", function (event) {
     event.preventDefault(); // Prevent form submission
 
-    console.log('Submit button clicked');  // Check if the event is triggered
-
     if (validateForm()) {
         // Disable the submit button to prevent multiple submissions
         btn.disabled = true;
 
         // Capture form data and prepare it
-        const appointmentDate = document.getElementById('date').value;
-        const appointmentTime = document.getElementById('appt').value;
-        const appointmentDateTime = `${new Date(appointmentDate).toLocaleDateString('en-US', { weekday: 'short' })}, ${appointmentTime}`;
+        const appointmentDate = document.getElementById('date').value; // Actual date selected
+        const appointmentTime = document.getElementById('appt').value; // Time selected
+
+        if (!appointmentDate) {
+            alert("Please select a valid appointment date.");
+            btn.disabled = false;
+            return;
+        }
+
+        const formattedDate = new Date(appointmentDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        }); // e.g., December 12, 2024
+
+        const appointmentDateTime = `${formattedDate}, ${appointmentTime}`; // Combine date and time
 
         formData = {
             name: document.getElementById('name').value,
@@ -115,20 +126,11 @@ btn.addEventListener("click", function (event) {
             email: document.getElementById('email').value,
             age: document.getElementById('age').value,
             gender: document.getElementById('gender').value,
-            dateTime: appointmentDateTime,
-            doctor: document.getElementById('doctor-name').textContent
+            dateTime: appointmentDateTime, // Pass the full date and time
+            doctor: document.getElementById('doctor-name').textContent,
         };
 
         console.log('Form data captured:', formData); // Debugging line
-
-        // Store patient data in localStorage
-        localStorage.setItem('nameData', formData.name);
-        localStorage.setItem('addressData', formData.address);
-        localStorage.setItem('emailData', formData.email);
-        localStorage.setItem('ageData', formData.age);
-        localStorage.setItem('genderData', formData.gender);
-        localStorage.setItem('dateData', formData.dateTime.split(',')[0]);  // Date part only
-        localStorage.setItem('apptData', formData.dateTime.split(',')[1]);  // Time part only
 
         modal.style.display = "block"; // Show the confirmation modal
     } else {
@@ -165,33 +167,47 @@ let isSubmitting = false; // Add this flag to control duplicate submissions
 async function storeData() {
     if (isSubmitting) {
         alert('Your appointment is already being submitted.');
-        return;  // Prevent double submission
+        return;
     }
 
-    isSubmitting = true;  // Set flag to true to indicate submission is in progress
+    isSubmitting = true;
 
     try {
+        // Save all patient data in localStorage before submitting
+        const patientData = {
+            name: formData.name,
+            address: formData.address,
+            email: formData.email,
+            age: formData.age,
+            gender: formData.gender,
+            date: formData.dateTime,
+            appt: document.getElementById('appt').value,
+        };
+
+        localStorage.setItem('patientData', JSON.stringify(patientData)); // Save as a single object
+
         const response = await fetch('/appointments', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify(formData)
+            body: JSON.stringify(formData),
         });
 
         if (response.ok) {
             alert('Appointment successfully scheduled!');
             window.location.href = "../confirmation/confirmation.html";
         } else {
-            const errorMessage = await response.text();  // Get error message from response
+            const errorMessage = await response.text();
             alert(`Failed to schedule appointment: ${errorMessage}`);
         }
     } catch (error) {
         console.error('Error:', error);
         alert('Error submitting appointment request.');
     } finally {
-        isSubmitting = false;  // Reset flag to allow future submissions
+        isSubmitting = false;
     }
 }
+
 
 document.addEventListener('DOMContentLoaded', displayDetails);
