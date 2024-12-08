@@ -1,33 +1,96 @@
+let doctorName = sessionStorage.getItem('doctorName');
+
+// If doctorName is not set (e.g., if the user is not logged in), redirect to login
+if (!doctorName) {
+    window.location.href = '../login/admin.html';
+} else {
+    // Doctor greeting
+    document.querySelector('.greet h1').textContent = `Welcome, Dr. ${doctorName}`;
+}
+
+// Function to fetch appointments with fallback
+function fetchAppointments() {
+    return fetch('http://localhost:5000/appointments')
+        .then(response => {
+            if (!response.ok) throw new Error('Local server unavailable');
+            return response.json();
+        })
+        .catch(() => {
+            console.warn('Falling back to remote server');
+            return fetch('https://vitalpoint.onrender.com/appointments')
+                .then(response => response.json());
+        });
+}
+
+// Fetch appointments
+fetchAppointments()
+    .then(appointments => {
+        const tbody = document.querySelector('#doctor-table tbody');
+
+        // Filter appointments for this doctor using the doctor's name
+        const doctorAppointments = appointments.filter(appointment => appointment.doctor === `Dr. ${doctorName}`);
+
+        // Loop through the appointments and add rows to the table
+        doctorAppointments.forEach(appointment => {
+            const row = document.createElement('tr');
+
+            row.innerHTML = `
+                <td>${appointment.patientId}</td>
+                <td>${appointment.name}</td>
+                <td>${appointment.doctor}</td>
+                <td>${appointment.contact}</td>
+                <td>${appointment.email}</td>
+                <td>${appointment.dateTime}</td>
+                <td><button class="delete-btn" data-id="${appointment._id}">Delete</button></td>
+            `;
+
+            tbody.appendChild(row);
+
+            // Attach delete button event handler
+            row.querySelector('.delete-btn').addEventListener('click', function () {
+                selectedRow = row; // Set the row to be deleted
+                modal.style.display = "block"; // Show the delete confirmation modal
+            });
+        });
+    })
+    .catch(error => {
+        console.error('Error fetching appointments:', error);
+    });
+
+// Modal Logic
 var modal = document.getElementById("myModal");
-var btn = document.getElementById("delbtn");
-var span = document.getElementsByClassName("close")[0];
 var confirmBtn = document.getElementById("confirmBtn");
 var cancelBtn = document.getElementById("cancelBtn");
-var selectedRow = null; // To store the row to be deleted
+var selectedRow = null;
 
-// Show the modal when any "DELETE" button in the table is clicked
-document.querySelectorAll('.delete-btn').forEach(function(button) {
-    button.onclick = function() {
-        selectedRow = button.closest('tr'); // Get the row that contains the clicked button
-        modal.style.display = "block"; // Show the modal
-    };
-});
-
-// Close the modal when the 'x' is clicked
-span.onclick = function() {
-    modal.style.display = "none";
-}
-
-// Close the modal when the 'Cancel' button is clicked
-cancelBtn.onclick = function() {
-    modal.style.display = "none";
-}
-
-// Confirm deletion when the 'Confirm' button is clicked
-confirmBtn.onclick = function() {
+// Confirm deletion
+confirmBtn.onclick = function () {
     if (selectedRow) {
         // Remove the row from the table
         selectedRow.remove();
         modal.style.display = "none"; // Close the modal
+
+        // Optionally, send a request to delete the appointment from the server
+        const appointmentId = selectedRow.querySelector('.delete-btn').dataset.id;
+        fetch(`https://vitalpoint.onrender.com/appointments/${appointmentId}`, {
+            method: 'DELETE',
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Appointment deleted', data);
+            })
+            .catch(error => {
+                console.error('Error deleting appointment:', error);
+            });
     }
-}
+};
+
+// Close modal on Cancel
+cancelBtn.onclick = function () {
+    modal.style.display = "none";
+};
+
+// Close modal on 'x'
+document.querySelector('.close').onclick = function () {
+    modal.style.display = "none";
+};

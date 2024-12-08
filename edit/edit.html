@@ -16,6 +16,9 @@
             <button class="loginbtn">RECORDS</button>
         </a>
         <button class="loginbtn_active">EDIT</button>
+        <a href="../login/admin.html">
+            <button class="loginbtn">LOGOUT</button>
+        </a>
     </div>
 
     <div class="container">
@@ -43,21 +46,8 @@
                     <th>EMAIL</th>
                 </tr>
             </thead>
-            <tbody>
-                <tr>
-                    <td>143</td>
-                    <td>Luwi Otanes</td>
-                    <td>Cardiologist</td>
-                    <td>Mon - Thurs, 12pm - 3pm</td>
-                    <td>LuwiSigma_doctor@gmail.com</td>
-                </tr>
-                <tr>
-                    <td>144</td>
-                    <td>John Doe</td>
-                    <td>Neurologist</td>
-                    <td>Mon - Fri, 10am - 2pm</td>
-                    <td>johndoe_doctor@gmail.com</td>
-                </tr>
+            <tbody id="doctor-table-body">
+                <!-- auto add -->
             </tbody>
         </table>
     </div>
@@ -70,7 +60,7 @@
                 <h2>Remove Doctor</h2>
             </div>
             <div class="modal-body">
-                <input type="number" id="doctorID" placeholder="Input ID number to delete">
+                <input type="text" id="doctorID" placeholder="Input ID number to delete">
             </div>
             <div class="modal-footer">
                 <button id="confirmBtn" class="confirm-btn">Confirm</button>
